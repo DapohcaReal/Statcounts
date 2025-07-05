@@ -246,32 +246,46 @@
 const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
 let compareMode = true;
 
-const lastStats = {
-  user1: { subs: 0, time: null },
-  user2: { subs: 0, time: null }
+const growthHistory = {
+  user1: [],
+  user2: []
 };
 
-function calculateGrowthRate(userId, currentSubs, currentTime) {
-  const last = lastStats[userId];
-  let perMin = 0, perHour = 0, perDay = 0;
+function updateGrowthHistory(userId, subs) {
+  const now = Date.now();
+  const history = growthHistory[userId];
 
-  if (last.time !== null) {
-    const deltaTime = (currentTime - last.time) / 1000;
-    const deltaSubs = currentSubs - last.subs;
-    if (deltaTime > 0) {
-      perMin = deltaSubs * 60 / deltaTime;
-      perHour = perMin * 60;
-      perDay = perHour * 24;
-    }
+  // Add new entry
+  history.push({ time: now, subs });
+
+  // Keep only last 10 minutes of history (or any time you prefer)
+  const tenMinutes = 10 * 60 * 1000;
+  growthHistory[userId] = history.filter(entry => now - entry.time <= tenMinutes);
+}
+
+function calculateAverageGrowth(userId) {
+  const history = growthHistory[userId];
+  if (history.length < 2) {
+    return { perMin: 0, perHour: 0, perDay: 0 };
   }
 
-  lastStats[userId] = { subs: currentSubs, time: currentTime };
+  const first = history[0];
+  const last = history[history.length - 1];
+  const deltaSubs = last.subs - first.subs;
+  const deltaTime = (last.time - first.time) / 1000; // in seconds
+
+  if (deltaTime <= 0) {
+    return { perMin: 0, perHour: 0, perDay: 0 };
+  }
+
+  const perMin = deltaSubs / (deltaTime / 60);
   return {
     perMin: Math.round(perMin),
-    perHour: Math.round(perHour),
-    perDay: Math.round(perDay)
+    perHour: Math.round(perMin * 60),
+    perDay: Math.round(perMin * 60 * 24)
   };
 }
+
 
 async function fetchChannelData(id) {
   const res = await fetch(apiBase + encodeURIComponent(id));
@@ -321,8 +335,8 @@ async function fetchSubs() {
 
 function updateUserDisplay(userId, data) {
   const now = Date.now();
-  const growth = calculateGrowthRate(userId, data.subscribers, now);
-
+  updateGrowthHistory(userId, data.subscribers);
+const growth = calculateAverageGrowth(userId);
   document.getElementById(`${userId}-name`).textContent = data.name;
   document.getElementById(`${userId}-pfp`).src = data.pfp;
   odometerUpdate(`${userId}-subs`, data.subscribers);
