@@ -246,6 +246,7 @@
  const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
 let compareMode = false; // start single mode
 
+// Helper: parse URL query params
 function getQueryParams() {
   const params = {};
   const query = window.location.search.substring(1);
@@ -253,10 +254,84 @@ function getQueryParams() {
   const pairs = query.split('&');
   for (const pair of pairs) {
     const [key, value] = pair.split('=');
-    if (key && value) params[key] = decodeURIComponent(value);
+    if (key && value) {
+      params[key] = decodeURIComponent(value);
+    }
   }
   return params;
 }
+
+// Update URL in address bar without reloading page
+function updateURLParams(id1, id2) {
+  const url = new URL(window.location);
+  if (id1 && id2) {
+    url.searchParams.set('id1', id1);
+    url.searchParams.set('id2', id2);
+    url.searchParams.delete('id');
+  } else if (id1) {
+    url.searchParams.set('id', id1);
+    url.searchParams.delete('id1');
+    url.searchParams.delete('id2');
+  } else {
+    url.searchParams.delete('id');
+    url.searchParams.delete('id1');
+    url.searchParams.delete('id2');
+  }
+  window.history.replaceState({}, '', url.toString());
+}
+
+// Modified fetchSubs function to update URL on Fetch
+async function fetchSubs() {
+  document.getElementById('error-msg').textContent = '';
+  const id1 = document.getElementById('channel1').value.trim();
+  const id2 = document.getElementById('channel2').value.trim();
+
+  if (!id1 || (compareMode && !id2)) {
+    document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
+    return;
+  }
+
+  // Update the URL
+  updateURLParams(id1, compareMode ? id2 : null);
+
+  try {
+    const data1 = await fetchChannelData(id1);
+    updateUserDisplay('user1', data1);
+
+    if (compareMode) {
+      const data2 = await fetchChannelData(id2);
+      updateUserDisplay('user2', data2);
+      const diff = Math.abs(data1.subscribers - data2.subscribers);
+      document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
+    } else {
+      document.getElementById('sub-diff').innerHTML = '';
+    }
+  } catch (err) {
+    document.getElementById('error-msg').textContent = err.message;
+  }
+}
+
+// On page load: read URL, set inputs, switch mode, fetch data
+window.onload = () => {
+  const params = getQueryParams();
+
+  if (params.id1 && params.id2) {
+    // Compare mode
+    if (!compareMode) toggleMode(); // make sure compare mode is ON
+    document.getElementById('channel1').value = params.id1;
+    document.getElementById('channel2').value = params.id2;
+    fetchSubs();
+  } else if (params.id) {
+    // Single channel mode
+    if (compareMode) toggleMode(); // switch to single mode
+    document.getElementById('channel1').value = params.id;
+    fetchSubs();
+  } else {
+    // Default to single mode (optional)
+    if (compareMode) toggleMode();
+  }
+};
+
 
 async function fetchChannelData(id) {
   const res = await fetch(apiBase + encodeURIComponent(id));
