@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Statzy - YouTube Sub Count & Compare</title>
+<title>Statcounts - YouTube Sub Count & Compare</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
 <style>
   :root {
@@ -194,7 +194,7 @@
     <button class="toggle-btn" onclick="toggleMode()">Single/Compare</button>
   </div>
 
-  <h1 id="main-title">Compare YouTube Subscribers</h1>
+<h1 id="main-title">Statcounts – Compare YouTube Subscribers</h1>
 
   <div class="inputs">
     <input id="channel1" type="text" placeholder="Enter Channel ID 1" />
@@ -336,7 +336,7 @@
 
       document.getElementById('main-title').textContent = compareMode
         ? 'Compare YouTube Subscribers'
-        : 'YouTube Sub Count';
+        : 'Statcounts - YouTube Sub Count';
 
       // Clear second channel inputs and data if switching to single mode
       if (!compareMode) {
