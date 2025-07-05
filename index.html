@@ -244,129 +244,168 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
 <script>
   const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
-  let compareMode = false; // Start in single mode by default
+let compareMode = false; // start in single mode by default
 
-  async function fetchChannelData(id) {
-    const res = await fetch(apiBase + encodeURIComponent(id));
-    if (!res.ok) throw new Error('Invalid response for: ' + id);
-    const d = await res.json();
-    return {
-      name: d.user.find(u => u.value === 'name')?.count || 'Unknown',
-      pfp: d.user.find(u => u.value === 'pfp')?.count || 'https://via.placeholder.com/120?text=No+Image',
-      subscribers: d.counts.find(c => c.value === 'subscribers')?.count || 0,
-      views: d.counts.find(c => c.value === 'views')?.count || 0,
-      videos: d.counts.find(c => c.value === 'videos')?.count || 0,
-    };
+function getQueryParams() {
+  const params = {};
+  const query = window.location.search.substring(1);
+  const pairs = query.split('&').filter(Boolean);
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (key && value) {
+      params[key] = decodeURIComponent(value);
+    }
   }
+  return params;
+}
 
-  function odometerUpdate(id, value) {
-    const el = document.getElementById(id);
-    if (el && el.innerHTML !== String(value)) {
-      el.innerHTML = value;
+async function fetchChannelData(id) {
+  const res = await fetch(apiBase + encodeURIComponent(id));
+  if (!res.ok) throw new Error('Invalid response for: ' + id);
+  const data = await res.json();
+  const subs = data.counts.find(c => c.value === 'subscribers');
+  const views = data.counts.find(c => c.value === 'views');
+  const videos = data.counts.find(c => c.value === 'videos');
+  const name = data.user.find(u => u.value === 'name');
+  const pfp = data.user.find(u => u.value === 'pfp');
+  
+  // Calculate subs per day/hour/min from last stats (average)
+  // fallback to 0 if missing
+  let subsPerDay = 0, subsPerHour = 0, subsPerMin = 0;
+  if (data.lastStats && data.lastStats.length > 1) {
+    const stats = data.lastStats;
+    const first = stats[0];
+    const last = stats[stats.length - 1];
+    const timeDiffMs = new Date(last.date) - new Date(first.date);
+    const subDiff = last.subscribers - first.subscribers;
+    if (timeDiffMs > 0) {
+      subsPerDay = subDiff / (timeDiffMs / (1000 * 60 * 60 * 24));
+      subsPerHour = subDiff / (timeDiffMs / (1000 * 60 * 60));
+      subsPerMin = subDiff / (timeDiffMs / (1000 * 60));
     }
   }
 
-  async function fetchSubs() {
-    document.getElementById('error-msg').textContent = '';
-    const id1 = document.getElementById('channel1').value.trim();
-    const id2 = document.getElementById('channel2').value.trim();
-
-    if (!id1 || (compareMode && !id2)) {
-      document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
-      return;
-    }
-
-    // Update URL accordingly
-    let newUrl = window.location.origin + window.location.pathname;
-    if (compareMode) {
-      newUrl += `?id1=${encodeURIComponent(id1)}&id2=${encodeURIComponent(id2)}`;
-    } else {
-      newUrl += `?id=${encodeURIComponent(id1)}`;
-    }
-    window.history.replaceState(null, '', newUrl);
-
-    try {
-      const data1 = await fetchChannelData(id1);
-      odometerUpdate('user1-subs', data1.subscribers);
-      odometerUpdate('user1-views', data1.views);
-      odometerUpdate('user1-videos', data1.videos);
-      document.getElementById('user1-name').textContent = data1.name;
-      document.getElementById('user1-pfp').src = data1.pfp;
-
-      if (compareMode) {
-        const data2 = await fetchChannelData(id2);
-        odometerUpdate('user2-subs', data2.subscribers);
-        odometerUpdate('user2-views', data2.views);
-        odometerUpdate('user2-videos', data2.videos);
-        document.getElementById('user2-name').textContent = data2.name;
-        document.getElementById('user2-pfp').src = data2.pfp;
-
-        const diff = Math.abs(data1.subscribers - data2.subscribers);
-        odometerUpdate('sub-diff', diff);
-      } else {
-        odometerUpdate('sub-diff', '');
-      }
-    } catch (e) {
-      document.getElementById('error-msg').textContent = e.message;
-    }
-  }
-
-  function getParams() {
-    const params = {};
-    new URLSearchParams(window.location.search).forEach((value, key) => {
-      params[key] = value;
-    });
-    return params;
-  }
-
-  function setCompareMode(enabled) {
-    compareMode = enabled;
-
-    document.getElementById('channel2').style.display = enabled ? 'inline-block' : 'none';
-    document.getElementById('user2').style.display = enabled ? 'block' : 'none';
-    document.getElementById('stats2').style.display = enabled ? 'block' : 'none';
-    document.getElementById('sub-diff').style.display = enabled ? 'block' : 'none';
-
-    document.getElementById('main-title').textContent = enabled
-      ? 'Statcounts – Compare YouTube Subscribers'
-      : 'Statcounts – Single YouTube Sub Count';
-
-    if (!enabled) {
-      document.getElementById('channel2').value = '';
-      odometerUpdate('user2-subs', 0);
-      odometerUpdate('user2-views', 0);
-      odometerUpdate('user2-videos', 0);
-      odometerUpdate('user2-subs-day', 0);
-      odometerUpdate('user2-subs-hour', 0);
-      odometerUpdate('user2-subs-min', 0);
-    }
-  }
-
-  function toggleMode() {
-    setCompareMode(!compareMode);
-  }
-
-  window.onload = () => {
-    const params = getParams();
-
-    if (params.id1 && params.id2) {
-      setCompareMode(true);
-      document.getElementById('channel1').value = params.id1;
-      document.getElementById('channel2').value = params.id2;
-      fetchSubs();
-    } else if (params.id) {
-      setCompareMode(false);
-      document.getElementById('channel1').value = params.id;
-      fetchSubs();
-    } else {
-      // Default to single mode without params
-      setCompareMode(false);
-    }
+  return {
+    name: name?.count || 'Unknown',
+    pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
+    subscribers: subs?.count || 0,
+    views: views?.count || 0,
+    videos: videos?.count || 0,
+    subsPerDay: Math.max(0, subsPerDay.toFixed(1)),
+    subsPerHour: Math.max(0, subsPerHour.toFixed(2)),
+    subsPerMin: Math.max(0, subsPerMin.toFixed(3)),
   };
+}
 
-  setInterval(() => {
-    const id1 = document.getElementById('channel1').value.trim();
-    const id2 = document.getElementById('channel2').value.trim();
-    if (id1 && (!compareMode || id2)) fetchSubs();
-  }, 2000);
-</script>
+function formatNumber(num) {
+  return num.toLocaleString();
+}
+
+async function fetchSubs() {
+  document.getElementById('error-msg').textContent = '';
+  const id1 = document.getElementById('channel1').value.trim();
+  const id2 = document.getElementById('channel2').value.trim();
+
+  if (!id1 || (compareMode && !id2)) {
+    document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
+    return;
+  }
+
+  try {
+    const data1 = await fetchChannelData(id1);
+    updateUserDisplay('user1', data1);
+
+    if (compareMode) {
+      const data2 = await fetchChannelData(id2);
+      updateUserDisplay('user2', data2);
+      const diff = Math.abs(data1.subscribers - data2.subscribers);
+      document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
+    } else {
+      document.getElementById('sub-diff').innerHTML = '';
+    }
+  } catch (err) {
+    document.getElementById('error-msg').textContent = err.message;
+  }
+}
+
+function updateUserDisplay(userId, data) {
+  document.getElementById(`${userId}-name`).textContent = data.name;
+  document.getElementById(`${userId}-pfp`).src = data.pfp;
+  odometerUpdate(`${userId}-subs`, data.subscribers);
+  odometerUpdate(`${userId}-views`, data.views);
+  odometerUpdate(`${userId}-videos`, data.videos);
+  odometerUpdate(`${userId}-subs-day`, data.subsPerDay);
+  odometerUpdate(`${userId}-subs-hour`, data.subsPerHour);
+  odometerUpdate(`${userId}-subs-min`, data.subsPerMin);
+}
+
+function odometerUpdate(id, value) {
+  const el = document.getElementById(id);
+  if (el.innerHTML != value.toString()) {
+    el.innerHTML = value;
+  }
+}
+
+function toggleTheme() {
+  document.body.classList.toggle('dark');
+}
+
+function toggleMode() {
+  compareMode = !compareMode;
+
+  document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
+  document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
+  document.getElementById('stats2').style.display = compareMode ? 'block' : 'none';
+  document.getElementById('sub-diff').style.display = compareMode ? 'block' : 'none';
+
+  document.getElementById('main-title').textContent = compareMode
+    ? 'Statcounts - Compare YouTube Subscribers'
+    : 'Statcounts - YouTube Sub Count';
+
+  if (!compareMode) {
+    document.getElementById('channel2').value = '';
+    odometerUpdate('user2-subs', 0);
+    odometerUpdate('user2-views', 0);
+    odometerUpdate('user2-videos', 0);
+    odometerUpdate('user2-subs-day', 0);
+    odometerUpdate('user2-subs-hour', 0);
+    odometerUpdate('user2-subs-min', 0);
+  }
+}
+
+function getQueryParams() {
+  const params = {};
+  const query = window.location.search.substring(1);
+  const pairs = query.split('&').filter(Boolean);
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (key && value) {
+      params[key] = decodeURIComponent(value);
+    }
+  }
+  return params;
+}
+
+window.onload = () => {
+  const params = getQueryParams();
+
+  if (params.id1 && params.id2) {
+    if (!compareMode) toggleMode();
+    document.getElementById('channel1').value = params.id1;
+    document.getElementById('channel2').value = params.id2;
+    fetchSubs();
+  } else if (params.id) {
+    if (compareMode) toggleMode();
+    document.getElementById('channel1').value = params.id;
+    fetchSubs();
+  } else {
+    if (!compareMode) toggleMode();
+  }
+};
+
+// Auto-refresh every 2 seconds if input exists
+setInterval(() => {
+  const id1 = document.getElementById('channel1').value.trim();
+  const id2 = document.getElementById('channel2').value.trim();
+  if (id1 && (!compareMode || id2)) fetchSubs();
+}, 2000);
