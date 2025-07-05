@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Statzy - Compare Subscribers</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
   <style>
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -67,6 +68,9 @@
       font-weight: 800;
       color: #e03e2f;
     }
+    .odometer {
+      display: inline-block;
+    }
     .sub-diff {
       margin-top: 30px;
       font-size: 1.6rem;
@@ -92,18 +96,19 @@
     <div class="user-box" id="user1">
       <img id="user1-pfp" src="https://via.placeholder.com/120?text=No+Image" alt="User 1 Profile" />
       <div class="username" id="user1-name">User 1</div>
-      <div class="subs" id="user1-subs">0</div>
+      <div class="subs odometer" id="user1-subs">0</div>
     </div>
     <div class="user-box" id="user2">
       <img id="user2-pfp" src="https://via.placeholder.com/120?text=No+Image" alt="User 2 Profile" />
       <div class="username" id="user2-name">User 2</div>
-      <div class="subs" id="user2-subs">0</div>
+      <div class="subs odometer" id="user2-subs">0</div>
     </div>
   </div>
 
   <div class="sub-diff" id="sub-diff">Sub Difference: 0</div>
   <div class="error" id="error-msg"></div>
 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
   <script>
     const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
 
@@ -120,10 +125,6 @@
         pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
         subscribers: subs?.count || 0
       };
-    }
-
-    function formatSubs(num) {
-      return Number(num).toLocaleString(); // Shows like 195,012,932
     }
 
     async function fetchSubs() {
@@ -144,22 +145,21 @@
 
         document.getElementById('user1-name').textContent = data1.name;
         document.getElementById('user1-pfp').src = data1.pfp;
-        document.getElementById('user1-subs').textContent = formatSubs(data1.subscribers);
+        document.getElementById('user1-subs').innerHTML = data1.subscribers;
 
         document.getElementById('user2-name').textContent = data2.name;
         document.getElementById('user2-pfp').src = data2.pfp;
-        document.getElementById('user2-subs').textContent = formatSubs(data2.subscribers);
+        document.getElementById('user2-subs').innerHTML = data2.subscribers;
 
         const diff = Math.abs(data1.subscribers - data2.subscribers);
-        document.getElementById('sub-diff').textContent = `Sub Difference: ${formatSubs(diff)}`;
+        document.getElementById('sub-diff').innerHTML = `Sub Difference: ${diff.toLocaleString()}`;
 
       } catch (err) {
         document.getElementById('error-msg').textContent = err.message;
-        document.getElementById('sub-diff').textContent = 'Sub Difference: 0';
+        document.getElementById('sub-diff').innerHTML = 'Sub Difference: 0';
       }
     }
 
-    // Auto-refresh every 2 seconds
     setInterval(() => {
       const id1 = document.getElementById('channel1').value.trim();
       const id2 = document.getElementById('channel2').value.trim();
