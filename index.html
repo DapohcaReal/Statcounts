@@ -391,3 +391,27 @@ window.onload = () => {
   toggleMode();
 };
 </script>
+// Parse query params
+function getQueryParam(key) {
+  const params = new URLSearchParams(window.location.search);
+  return params.get(key);
+}
+
+// Load from query params on page load
+window.onload = () => {
+  const id1 = getQueryParam('id') || getQueryParam('id1');
+  const id2 = getQueryParam('id2');
+
+  if (id1 && id2) {
+    document.getElementById('channel1').value = id1;
+    document.getElementById('channel2').value = id2;
+    if (!compareMode) toggleMode(); // ensure compare mode
+    fetchSubs();
+  } else if (id1) {
+    if (compareMode) toggleMode(); // ensure single mode
+    document.getElementById('channel1').value = id1;
+    fetchSubs();
+  } else {
+    toggleMode(); // Default toggle
+  }
+};
