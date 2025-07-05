@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="https://cdn.glitch.global/7bc7a825-e7c0-46d9-89b5-8a69899aa47f/statzyicon.png" type="image/png">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Statzy Compare</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
+  <style>
+    body { margin:0; font-family:'Segoe UI',sans-serif;
+      background:#111; color:#fff; display:flex;
+      flex-direction:column; align-items:center; padding:20px;
+      transition: background .3s,color .3s;
+    }
+    body.light { background:#f0f0f0; color:#111; }
+    body.light .container { background:#fff; color:#111; }
+    header { text-align:center; margin-bottom:20px; }
+    .container { width:100%; max-width:1200px; background:#1a1a1a;
+      border-radius:15px; padding:20px;
+      box-shadow:0 0 20px rgba(255,255,255,0.1);
+    }
+    body.light .container { background:#fff; box-shadow:0 0 20px rgba(0,0,0,0.1); }
+    input,textarea,button { padding:10px; margin:5px;font-size:1.1rem; }
+    .odometer { font-size:3rem; font-weight:bold; }
+    .section { margin-bottom:50px; text-align:center; }
+    img { max-width:150px; border-radius:10px; margin-bottom:10px; }
+    h2 { font-size:2rem; margin-bottom:10px; }
+    .stat-label { font-size:1.2rem; }
+    #compareResults .card { background:#222; padding:15px; border-radius:10px;
+      margin-bottom:15px; text-align:left;
+    }
+    body.light #compareResults .card { background:#eee; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>STATZY COMPARE</h1>
+    <button onclick="toggleTheme()">Toggle Light/Dark Mode</button>
+    <p>Enter Channel IDs (one per line) to compare stats</p>
+  </header>
+  <div class="container">
+    <textarea id="compareList" placeholder="UCX6OQ… (one ID per line)" rows="4" style="width:100%;"></textarea>
+    <button onclick="compareStats()">Compare Stats</button>
+    <div id="compareResults"></div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
+  <script>
+    function toggleTheme() {
+      document.body.classList.toggle('light');
+      localStorage.setItem('theme', document.body.classList.contains('light')?'light':'dark');
+    }
+    window.onload = () => {
+      if (localStorage.getItem('theme') === 'light') document.body.classList.add('light');
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('compare')) {
+        document.getElementById('compareList').value = params.get('compare').split(',').join('\n');
+        compareStats();
+      }
+    };
+    async function fetchData(url) {
+      const res = await fetch(url);
+      return res.json();
+    }
+    async function compareStats() {
+      const ids = document.getElementById('compareList').value.trim().split('\n').filter(Boolean);
+      const container = document.getElementById('compareResults');
+      container.innerHTML='';
+      for (const id of ids) {
+        try {
+          const d = await fetchData(`https://mixerno.space/api/youtube-channel-counter/user/${id}`);
+          const subs = d.counts.find(c=>c.value==='subscribers')?.count||0;
+          const views = d.counts.find(c=>c.value==='views')?.count||0;
+          const videos = d.counts.find(c=>c.value==='videos')?.count||0;
+          const name = d.user.find(u=>u.value==='name')?.count||'Unknown';
+          const pfp = d.user.find(u=>u.value==='pfp')?.count;
+
+          const card = document.createElement('div');
+          card.className='card';
+          card.innerHTML = `
+            <img src="${pfp}" alt="Avatar" />
+            <h2>${name}</h2>
+            <div class="stat-label">Subscribers: <span class="odometer">${subs}</span></div>
+            <div class="stat-label">Views: <span class="odometer">${views}</span></div>
+            <div class="stat-label">Videos: <span class="odometer">${videos}</span></div>
+          `;
+          container.appendChild(card);
+        } catch (e) {
+          console.error('Error fetching '+id, e);
+        }
+      }
+      // Initialize odometers
+      document.querySelectorAll('.odometer').forEach(el=>{
+        new Odometer({ el, value: +el.textContent });
+      });
+    }
+  </script>
+</body>
+</html>
