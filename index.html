@@ -6,23 +6,54 @@
   <title>Statzy - Compare Subscribers</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
   <style>
+    :root {
+      --bg-color: #f8f8f8;
+      --text-color: #222;
+      --card-color: #fff;
+      --count-color: #000;
+    }
+
+    body.dark {
+      --bg-color: #111;
+      --text-color: #fff;
+      --card-color: #1a1a1a;
+      --count-color: #fff;
+    }
+
     body {
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f8f8f8;
-      color: #222;
+      background: var(--bg-color);
+      color: var(--text-color);
       margin: 0;
       padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
       min-height: 100vh;
+      transition: all 0.3s ease;
     }
+
     h1 {
       margin-bottom: 1rem;
     }
+
+    .toggle-btn {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      padding: 8px 14px;
+      background: var(--card-color);
+      color: var(--text-color);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
     .inputs {
       margin-bottom: 1.5rem;
     }
+
     input {
       font-size: 1rem;
       padding: 10px;
@@ -30,11 +61,13 @@
       width: 280px;
       max-width: 90vw;
     }
+
     button {
       font-size: 1rem;
       padding: 10px 18px;
       cursor: pointer;
     }
+
     .compare-container {
       display: flex;
       justify-content: center;
@@ -43,14 +76,17 @@
       max-width: 900px;
       width: 100%;
     }
+
     .user-box {
-      background: #fff;
+      background: var(--card-color);
       border-radius: 12px;
       padding: 20px;
       box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
       flex: 1 1 300px;
       text-align: center;
+      transition: background 0.3s ease;
     }
+
     .user-box img {
       border-radius: 50%;
       width: 120px;
@@ -58,25 +94,30 @@
       object-fit: cover;
       margin-bottom: 12px;
     }
+
     .username {
       font-weight: 700;
       font-size: 1.3rem;
       margin-bottom: 8px;
     }
+
     .subs {
       font-size: 2.5rem;
       font-weight: 800;
-      color: #e03e2f;
+      color: var(--count-color);
     }
+
     .odometer {
       display: inline-block;
     }
+
     .sub-diff {
       margin-top: 30px;
       font-size: 1.6rem;
       font-weight: 700;
-      color: #333;
+      color: var(--count-color);
     }
+
     .error {
       margin-top: 15px;
       color: #cc0000;
@@ -85,7 +126,9 @@
   </style>
 </head>
 <body>
+  <button class="toggle-btn" onclick="toggleTheme()">Toggle Mode</button>
   <h1>Compare YouTube Subscribers</h1>
+
   <div class="inputs">
     <input id="channel1" type="text" placeholder="Enter Channel ID 1" />
     <input id="channel2" type="text" placeholder="Enter Channel ID 2" />
@@ -105,7 +148,7 @@
     </div>
   </div>
 
-  <div class="sub-diff" id="sub-diff">Sub Difference: 0</div>
+  <div class="sub-diff odometer" id="sub-diff">0</div>
   <div class="error" id="error-msg"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
@@ -152,12 +195,16 @@
         document.getElementById('user2-subs').innerHTML = data2.subscribers;
 
         const diff = Math.abs(data1.subscribers - data2.subscribers);
-        document.getElementById('sub-diff').innerHTML = `Sub Difference: ${diff.toLocaleString()}`;
+        document.getElementById('sub-diff').innerHTML = diff;
 
       } catch (err) {
         document.getElementById('error-msg').textContent = err.message;
-        document.getElementById('sub-diff').innerHTML = 'Sub Difference: 0';
+        document.getElementById('sub-diff').innerHTML = '0';
       }
+    }
+
+    function toggleTheme() {
+      document.body.classList.toggle('dark');
     }
 
     setInterval(() => {
