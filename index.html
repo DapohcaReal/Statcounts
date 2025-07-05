@@ -395,6 +395,19 @@ setInterval(() => {
   const id2 = document.getElementById('channel2').value.trim();
   if (id1 && (!compareMode || id2)) fetchSubs();
 }, 2000);
+function getQueryParams() {
+  const params = {};
+  const query = window.location.search.substring(1);
+  const pairs = query.split('&');
+  for (const pair of pairs) {
+    const [key, value] = pair.split('=');
+    if (key && value) {
+      params[key] = decodeURIComponent(value);
+    }
+  }
+  return params;
+}
+
 window.onload = () => {
   const params = getQueryParams();
 
@@ -414,19 +427,3 @@ window.onload = () => {
     if (!compareMode) toggleMode();
   }
 };
-
-</script>
-function getQueryParams() {
-  const params = {};
-  const query = window.location.search.substring(1);
-  const pairs = query.split('&');
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (key && value) {
-      params[key] = decodeURIComponent(value);
-    }
-  }
-  return params;
-}
-</script>
-</script>
