@@ -1,84 +1,84 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Subscriber Compare — Statzy Mod</title>
-<style>
-  body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: #f9f9f9;
-    color: #222;
-    margin: 0;
-    padding: 20px;
-    display: flex; 
-    flex-direction: column;
-    align-items: center;
-    min-height: 100vh;
-  }
-  h1 {
-    margin-bottom: 1rem;
-  }
-  .inputs {
-    margin-bottom: 1.5rem;
-  }
-  input {
-    font-size: 1rem;
-    padding: 10px;
-    margin: 0 10px 0 0;
-    width: 280px;
-    max-width: 90vw;
-  }
-  button {
-    font-size: 1rem;
-    padding: 10px 18px;
-    cursor: pointer;
-  }
-  .compare-container {
-    display: flex;
-    justify-content: center;
-    gap: 40px;
-    flex-wrap: wrap;
-    max-width: 900px;
-    width: 100%;
-  }
-  .user-box {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
-    flex: 1 1 300px;
-    text-align: center;
-  }
-  .user-box img {
-    border-radius: 50%;
-    width: 120px;
-    height: 120px;
-    object-fit: cover;
-    margin-bottom: 12px;
-  }
-  .username {
-    font-weight: 700;
-    font-size: 1.3rem;
-    margin-bottom: 8px;
-  }
-  .subs {
-    font-size: 2.5rem;
-    font-weight: 800;
-    color: #e03e2f;
-  }
-  .sub-diff {
-    margin-top: 30px;
-    font-size: 1.6rem;
-    font-weight: 700;
-    color: #333;
-  }
-  .error {
-    margin-top: 15px;
-    color: #cc0000;
-    font-weight: 600;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Statzy - Compare Subscribers</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f8f8f8;
+      color: #222;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    .inputs {
+      margin-bottom: 1.5rem;
+    }
+    input {
+      font-size: 1rem;
+      padding: 10px;
+      margin: 0 10px 10px 0;
+      width: 280px;
+      max-width: 90vw;
+    }
+    button {
+      font-size: 1rem;
+      padding: 10px 18px;
+      cursor: pointer;
+    }
+    .compare-container {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+      max-width: 900px;
+      width: 100%;
+    }
+    .user-box {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+      flex: 1 1 300px;
+      text-align: center;
+    }
+    .user-box img {
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      margin-bottom: 12px;
+    }
+    .username {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+    .subs {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: #e03e2f;
+    }
+    .sub-diff {
+      margin-top: 30px;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .error {
+      margin-top: 15px;
+      color: #cc0000;
+      font-weight: 600;
+    }
+  </style>
 </head>
 <body>
   <h1>Compare YouTube Subscribers</h1>
@@ -104,76 +104,70 @@
   <div class="sub-diff" id="sub-diff">Sub Difference: 0</div>
   <div class="error" id="error-msg"></div>
 
-<script>
-  const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
+  <script>
+    const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
 
-  async function fetchChannelData(id) {
-    try {
+    async function fetchChannelData(id) {
       const res = await fetch(apiBase + encodeURIComponent(id));
-      if (!res.ok) throw new Error('Network response was not OK');
+      if (!res.ok) throw new Error('Invalid response for: ' + id);
       const data = await res.json();
-      if (!data.subscribers) throw new Error('Invalid channel data');
-      return data;
-    } catch (e) {
-      throw new Error(`Failed to fetch channel ID: ${id}`);
-    }
-  }
+      const subs = data.counts.find(c => c.value === 'subscribers');
+      const name = data.user.find(u => u.value === 'name');
+      const pfp = data.user.find(u => u.value === 'pfp');
 
-  function formatSubs(num) {
-    if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
-    if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
-    if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
-    return num.toString();
-  }
-
-  async function fetchSubs() {
-    document.getElementById('error-msg').textContent = '';
-    const id1 = document.getElementById('channel1').value.trim();
-    const id2 = document.getElementById('channel2').value.trim();
-
-    if (!id1 || !id2) {
-      document.getElementById('error-msg').textContent = 'Please enter both channel IDs.';
-      return;
+      return {
+        name: name?.count || 'Unknown',
+        pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
+        subscribers: subs?.count || 0
+      };
     }
 
-    try {
-      const [data1, data2] = await Promise.all([fetchChannelData(id1), fetchChannelData(id2)]);
-
-      // User 1 info
-      document.getElementById('user1-pfp').src = data1.pfp;
-      document.getElementById('user1-name').textContent = data1.name;
-      document.getElementById('user1-subs').textContent = formatSubs(data1.subscribers);
-
-      // User 2 info
-      document.getElementById('user2-pfp').src = data2.pfp;
-      document.getElementById('user2-name').textContent = data2.name;
-      document.getElementById('user2-subs').textContent = formatSubs(data2.subscribers);
-
-      // Difference
-      const diff = Math.abs(data1.subscribers - data2.subscribers);
-      document.getElementById('sub-diff').textContent = `Sub Difference: ${formatSubs(diff)}`;
-
-    } catch (err) {
-      document.getElementById('error-msg').textContent = err.message;
-      // Reset display
-      ['user1', 'user2'].forEach(user => {
-        document.getElementById(user + '-pfp').src = 'https://via.placeholder.com/120?text=No+Image';
-        document.getElementById(user + '-name').textContent = user === 'user1' ? 'User 1' : 'User 2';
-        document.getElementById(user + '-subs').textContent = '0';
-      });
-      document.getElementById('sub-diff').textContent = 'Sub Difference: 0';
+    function formatSubs(num) {
+      if (num >= 1e9) return (num / 1e9).toFixed(1) + 'B';
+      if (num >= 1e6) return (num / 1e6).toFixed(1) + 'M';
+      if (num >= 1e3) return (num / 1e3).toFixed(1) + 'K';
+      return num.toString();
     }
-  }
 
-  // Auto-refresh every 2 seconds if inputs filled
-  setInterval(() => {
-    if (
-      document.getElementById('channel1').value.trim() &&
-      document.getElementById('channel2').value.trim()
-    ) {
-      fetchSubs();
+    async function fetchSubs() {
+      document.getElementById('error-msg').textContent = '';
+      const id1 = document.getElementById('channel1').value.trim();
+      const id2 = document.getElementById('channel2').value.trim();
+
+      if (!id1 || !id2) {
+        document.getElementById('error-msg').textContent = 'Please enter both channel IDs.';
+        return;
+      }
+
+      try {
+        const [data1, data2] = await Promise.all([
+          fetchChannelData(id1),
+          fetchChannelData(id2)
+        ]);
+
+        document.getElementById('user1-name').textContent = data1.name;
+        document.getElementById('user1-pfp').src = data1.pfp;
+        document.getElementById('user1-subs').textContent = formatSubs(data1.subscribers);
+
+        document.getElementById('user2-name').textContent = data2.name;
+        document.getElementById('user2-pfp').src = data2.pfp;
+        document.getElementById('user2-subs').textContent = formatSubs(data2.subscribers);
+
+        const diff = Math.abs(data1.subscribers - data2.subscribers);
+        document.getElementById('sub-diff').textContent = `Sub Difference: ${formatSubs(diff)}`;
+
+      } catch (err) {
+        document.getElementById('error-msg').textContent = err.message;
+        document.getElementById('sub-diff').textContent = 'Sub Difference: 0';
+      }
     }
-  }, 2000);
-</script>
+
+    // Auto-refresh every 2 seconds
+    setInterval(() => {
+      const id1 = document.getElementById('channel1').value.trim();
+      const id2 = document.getElementById('channel2').value.trim();
+      if (id1 && id2) fetchSubs();
+    }, 2000);
+  </script>
 </body>
 </html>
