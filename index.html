@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Statzy - Compare Subscribers</title>
+  <title>Statzy - YouTube Sub Count</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
   <style>
     :root {
@@ -37,10 +37,15 @@
       margin-bottom: 1rem;
     }
 
-    .toggle-btn {
+    .top-buttons {
       position: absolute;
       top: 15px;
       right: 15px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .toggle-btn {
       padding: 8px 14px;
       background: var(--card-color);
       color: var(--text-color);
@@ -52,12 +57,15 @@
 
     .inputs {
       margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
     }
 
     input {
       font-size: 1rem;
       padding: 10px;
-      margin: 0 10px 10px 0;
       width: 280px;
       max-width: 90vw;
     }
@@ -123,16 +131,25 @@
       color: #cc0000;
       font-weight: 600;
     }
+
+    #user2,
+    #sub-diff {
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <button class="toggle-btn" onclick="toggleTheme()">Toggle Mode</button>
-  <h1>Compare YouTube Subscribers</h1>
+  <div class="top-buttons">
+    <button class="toggle-btn" onclick="toggleTheme()">Toggle Mode</button>
+    <button class="toggle-btn" onclick="toggleMode()">Single/Compare</button>
+  </div>
+
+  <h1 id="main-title">YouTube Sub Count</h1>
 
   <div class="inputs">
     <input id="channel1" type="text" placeholder="Enter Channel ID 1" />
     <input id="channel2" type="text" placeholder="Enter Channel ID 2" />
-    <button onclick="fetchSubs()">Compare</button>
+    <button onclick="fetchSubs()">Fetch</button>
   </div>
 
   <div class="compare-container">
@@ -154,6 +171,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
   <script>
     const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
+    let compareMode = true;
 
     async function fetchChannelData(id) {
       const res = await fetch(apiBase + encodeURIComponent(id));
@@ -175,31 +193,28 @@
       const id1 = document.getElementById('channel1').value.trim();
       const id2 = document.getElementById('channel2').value.trim();
 
-      if (!id1 || !id2) {
-        document.getElementById('error-msg').textContent = 'Please enter both channel IDs.';
+      if (!id1 || (compareMode && !id2)) {
+        document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
         return;
       }
 
       try {
-        const [data1, data2] = await Promise.all([
-          fetchChannelData(id1),
-          fetchChannelData(id2)
-        ]);
-
+        const data1 = await fetchChannelData(id1);
         document.getElementById('user1-name').textContent = data1.name;
         document.getElementById('user1-pfp').src = data1.pfp;
         document.getElementById('user1-subs').innerHTML = data1.subscribers;
 
-        document.getElementById('user2-name').textContent = data2.name;
-        document.getElementById('user2-pfp').src = data2.pfp;
-        document.getElementById('user2-subs').innerHTML = data2.subscribers;
+        if (compareMode) {
+          const data2 = await fetchChannelData(id2);
+          document.getElementById('user2-name').textContent = data2.name;
+          document.getElementById('user2-pfp').src = data2.pfp;
+          document.getElementById('user2-subs').innerHTML = data2.subscribers;
 
-        const diff = Math.abs(data1.subscribers - data2.subscribers);
-        document.getElementById('sub-diff').innerHTML = diff;
-
+          const diff = Math.abs(data1.subscribers - data2.subscribers);
+          document.getElementById('sub-diff').innerHTML = diff;
+        }
       } catch (err) {
         document.getElementById('error-msg').textContent = err.message;
-        document.getElementById('sub-diff').innerHTML = '0';
       }
     }
 
@@ -207,10 +222,22 @@
       document.body.classList.toggle('dark');
     }
 
+    function toggleMode() {
+      compareMode = !compareMode;
+
+      document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
+      document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
+      document.getElementById('sub-diff').style.display = compareMode ? 'block' : 'none';
+
+      document.getElementById('main-title').textContent = compareMode
+        ? 'Compare YouTube Subscribers'
+        : 'YouTube Sub Count';
+    }
+
     setInterval(() => {
       const id1 = document.getElementById('channel1').value.trim();
       const id2 = document.getElementById('channel2').value.trim();
-      if (id1 && id2) fetchSubs();
+      if (id1 && (!compareMode || id2)) fetchSubs();
     }, 2000);
   </script>
 </body>
