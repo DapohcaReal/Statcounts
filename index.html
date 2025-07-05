@@ -242,236 +242,185 @@
   <div class="error" id="error-msg"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
-  <script>
- const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
-let compareMode = false; // start single mode
+<script>
+  const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
+  let compareMode = true;
 
-// Helper: parse URL query params
-function getQueryParams() {
-  const params = {};
-  const query = window.location.search.substring(1);
-  if (!query) return params;
-  const pairs = query.split('&');
-  for (const pair of pairs) {
-    const [key, value] = pair.split('=');
-    if (key && value) {
-      params[key] = decodeURIComponent(value);
+  // Helper: parse URL query params
+  function getQueryParams() {
+    const params = {};
+    const query = window.location.search.substring(1);
+    if (!query) return params;
+    const pairs = query.split('&');
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=');
+      if (key && value) {
+        params[key] = decodeURIComponent(value);
+      }
     }
-  }
-  return params;
-}
-
-// Update URL in address bar without reloading page
-function updateURLParams(id1, id2) {
-  const url = new URL(window.location);
-  if (id1 && id2) {
-    url.searchParams.set('id1', id1);
-    url.searchParams.set('id2', id2);
-    url.searchParams.delete('id');
-  } else if (id1) {
-    url.searchParams.set('id', id1);
-    url.searchParams.delete('id1');
-    url.searchParams.delete('id2');
-  } else {
-    url.searchParams.delete('id');
-    url.searchParams.delete('id1');
-    url.searchParams.delete('id2');
-  }
-  window.history.replaceState({}, '', url.toString());
-}
-
-// Modified fetchSubs function to update URL on Fetch
-async function fetchSubs() {
-  document.getElementById('error-msg').textContent = '';
-  const id1 = document.getElementById('channel1').value.trim();
-  const id2 = document.getElementById('channel2').value.trim();
-
-  if (!id1 || (compareMode && !id2)) {
-    document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
-    return;
+    return params;
   }
 
-  // Update the URL
-  updateURLParams(id1, compareMode ? id2 : null);
-
-  try {
-    const data1 = await fetchChannelData(id1);
-    updateUserDisplay('user1', data1);
-
-    if (compareMode) {
-      const data2 = await fetchChannelData(id2);
-      updateUserDisplay('user2', data2);
-      const diff = Math.abs(data1.subscribers - data2.subscribers);
-      document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
+  // Update URL in address bar without reloading page
+  function updateURLParams(id1, id2) {
+    const url = new URL(window.location);
+    if (id1 && id2) {
+      url.searchParams.set('id1', id1);
+      url.searchParams.set('id2', id2);
+      url.searchParams.delete('id');
+    } else if (id1) {
+      url.searchParams.set('id', id1);
+      url.searchParams.delete('id1');
+      url.searchParams.delete('id2');
     } else {
-      document.getElementById('sub-diff').innerHTML = '';
+      url.searchParams.delete('id');
+      url.searchParams.delete('id1');
+      url.searchParams.delete('id2');
     }
-  } catch (err) {
-    document.getElementById('error-msg').textContent = err.message;
+    window.history.replaceState({}, '', url.toString());
   }
-}
 
-// On page load: read URL, set inputs, switch mode, fetch data
-window.onload = () => {
-  const params = getQueryParams();
+  async function fetchChannelData(id) {
+    const res = await fetch(apiBase + encodeURIComponent(id));
+    if (!res.ok) throw new Error('Invalid response for: ' + id);
+    const data = await res.json();
+    const subs = data.counts.find(c => c.value === 'subscribers');
+    const views = data.counts.find(c => c.value === 'views');
+    const videos = data.counts.find(c => c.value === 'videos');
+    const name = data.user.find(u => u.value === 'name');
+    const pfp = data.user.find(u => u.value === 'pfp');
 
-  if (params.id1 && params.id2) {
-    // Compare mode
-    if (!compareMode) toggleMode(); // make sure compare mode is ON
-    document.getElementById('channel1').value = params.id1;
-    document.getElementById('channel2').value = params.id2;
-    fetchSubs();
-  } else if (params.id) {
-    // Single channel mode
-    if (compareMode) toggleMode(); // switch to single mode
-    document.getElementById('channel1').value = params.id;
-    fetchSubs();
-  } else {
-    // Default to single mode (optional)
-    if (compareMode) toggleMode();
+    // Calculate subs per day/hour/min based on stats (fallback 0)
+    let subsPerDay = 0, subsPerHour = 0, subsPerMin = 0;
+    if (data.statistics && data.statistics.length >= 2) {
+      // Use last two statistics entries to calculate growth per time
+      const stats = data.statistics;
+      const last = stats[stats.length - 1];
+      const prev = stats[stats.length - 2];
+      const subDiff = last.subscribers - prev.subscribers;
+      const timeDiffSec = (new Date(last.time) - new Date(prev.time)) / 1000;
+      if (timeDiffSec > 0) {
+        subsPerDay = (subDiff / timeDiffSec) * 86400;
+        subsPerHour = (subDiff / timeDiffSec) * 3600;
+        subsPerMin = (subDiff / timeDiffSec) * 60;
+      }
+    }
+
+    return {
+      name: name?.count || 'Unknown',
+      pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
+      subscribers: subs?.count || 0,
+      views: views?.count || 0,
+      videos: videos?.count || 0,
+      subsPerDay: Math.max(0, Math.round(subsPerDay)),
+      subsPerHour: Math.max(0, Math.round(subsPerHour)),
+      subsPerMin: Math.max(0, Math.round(subsPerMin)),
+    };
   }
-};
 
+  function formatNumber(num) {
+    return num.toLocaleString();
+  }
 
-async function fetchChannelData(id) {
-  const res = await fetch(apiBase + encodeURIComponent(id));
-  if (!res.ok) throw new Error('Failed to fetch data for channel ID: ' + id);
-  const data = await res.json();
+  async function fetchSubs() {
+    document.getElementById('error-msg').textContent = '';
+    const id1 = document.getElementById('channel1').value.trim();
+    const id2 = document.getElementById('channel2').value.trim();
 
-  const subs = data.counts.find(c => c.value === 'subscribers');
-  const views = data.counts.find(c => c.value === 'views');
-  const videos = data.counts.find(c => c.value === 'videos');
-  const name = data.user.find(u => u.value === 'name');
-  const pfp = data.user.find(u => u.value === 'pfp');
+    if (!id1 || (compareMode && !id2)) {
+      document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
+      return;
+    }
 
-  // Calculate subs per day/hour/min from lastStats:
-  let subsPerDay = 0, subsPerHour = 0, subsPerMin = 0;
-  if (Array.isArray(data.lastStats) && data.lastStats.length > 1) {
-    const stats = data.lastStats.slice().sort((a,b) => new Date(a.date) - new Date(b.date));
-    const first = stats[0];
-    const last = stats[stats.length - 1];
-    const timeDiffMs = new Date(last.date) - new Date(first.date);
-    const subDiff = last.subscribers - first.subscribers;
-    if (timeDiffMs > 0 && subDiff > 0) {
-      subsPerDay = subDiff / (timeDiffMs / (1000 * 60 * 60 * 24));
-      subsPerHour = subDiff / (timeDiffMs / (1000 * 60 * 60));
-      subsPerMin = subDiff / (timeDiffMs / (1000 * 60));
+    // Update the URL with current channel ids
+    updateURLParams(id1, compareMode ? id2 : null);
+
+    try {
+      const data1 = await fetchChannelData(id1);
+      updateUserDisplay('user1', data1);
+
+      if (compareMode) {
+        const data2 = await fetchChannelData(id2);
+        updateUserDisplay('user2', data2);
+        const diff = Math.abs(data1.subscribers - data2.subscribers);
+        document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
+      } else {
+        document.getElementById('sub-diff').innerHTML = '';
+      }
+    } catch (err) {
+      document.getElementById('error-msg').textContent = err.message;
     }
   }
 
-  return {
-    name: name?.count || 'Unknown',
-    pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
-    subscribers: subs?.count || 0,
-    views: views?.count || 0,
-    videos: videos?.count || 0,
-    subsPerDay: subsPerDay > 0 ? subsPerDay.toFixed(1) : '0',
-    subsPerHour: subsPerHour > 0 ? subsPerHour.toFixed(2) : '0',
-    subsPerMin: subsPerMin > 0 ? subsPerMin.toFixed(3) : '0',
-  };
-}
-
-function odometerUpdate(id, value) {
-  const el = document.getElementById(id);
-  if (el.innerHTML !== value.toString()) {
-    el.innerHTML = value;
-  }
-}
-
-function updateUserDisplay(userId, data) {
-  document.getElementById(`${userId}-name`).textContent = data.name;
-  document.getElementById(`${userId}-pfp`).src = data.pfp;
-  odometerUpdate(`${userId}-subs`, data.subscribers);
-  odometerUpdate(`${userId}-views`, data.views);
-  odometerUpdate(`${userId}-videos`, data.videos);
-  odometerUpdate(`${userId}-subs-day`, data.subsPerDay);
-  odometerUpdate(`${userId}-subs-hour`, data.subsPerHour);
-  odometerUpdate(`${userId}-subs-min`, data.subsPerMin);
-}
-
-async function fetchSubs() {
-  document.getElementById('error-msg').textContent = '';
-  const id1 = document.getElementById('channel1').value.trim();
-  const id2 = document.getElementById('channel2').value.trim();
-
-  if (!id1 || (compareMode && !id2)) {
-    document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
-    return;
+  function updateUserDisplay(userId, data) {
+    document.getElementById(`${userId}-name`).textContent = data.name;
+    document.getElementById(`${userId}-pfp`).src = data.pfp;
+    odometerUpdate(`${userId}-subs`, data.subscribers);
+    odometerUpdate(`${userId}-views`, data.views);
+    odometerUpdate(`${userId}-videos`, data.videos);
+    odometerUpdate(`${userId}-subs-day`, data.subsPerDay);
+    odometerUpdate(`${userId}-subs-hour`, data.subsPerHour);
+    odometerUpdate(`${userId}-subs-min`, data.subsPerMin);
   }
 
-  try {
-    const data1 = await fetchChannelData(id1);
-    updateUserDisplay('user1', data1);
-
-    if (compareMode) {
-      const data2 = await fetchChannelData(id2);
-      updateUserDisplay('user2', data2);
-      const diff = Math.abs(data1.subscribers - data2.subscribers);
-      document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
-    } else {
-      document.getElementById('sub-diff').innerHTML = '';
+  // Odometer update helper
+  function odometerUpdate(id, value) {
+    const el = document.getElementById(id);
+    if (el.innerHTML != value.toString()) {
+      el.innerHTML = value;
     }
-  } catch (err) {
-    document.getElementById('error-msg').textContent = err.message;
   }
-}
 
-function toggleTheme() {
-  document.body.classList.toggle('dark');
-}
+  function toggleTheme() {
+    document.body.classList.toggle('dark');
+  }
 
-function toggleMode(setMode = null) {
-  if (typeof setMode === 'boolean') {
-    compareMode = setMode;
-  } else {
+  function toggleMode() {
     compareMode = !compareMode;
+
+    document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
+    document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
+    document.getElementById('stats2').style.display = compareMode ? 'block' : 'none';
+    document.getElementById('sub-diff').style.display = compareMode ? 'block' : 'none';
+
+    document.getElementById('main-title').textContent = compareMode
+      ? 'Statcounts - Compare YouTube Subscribers'
+      : 'Statcounts - YouTube Sub Count';
+
+    if (!compareMode) {
+      document.getElementById('channel2').value = '';
+      odometerUpdate('user2-subs', 0);
+      odometerUpdate('user2-views', 0);
+      odometerUpdate('user2-videos', 0);
+      odometerUpdate('user2-subs-day', 0);
+      odometerUpdate('user2-subs-hour', 0);
+      odometerUpdate('user2-subs-min', 0);
+    }
   }
 
-  document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
-  document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
-  document.getElementById('stats2').style.display = compareMode ? 'block' : 'none';
-  document.getElementById('sub-diff').style.display = compareMode ? 'block' : 'none';
+  // Auto-refresh every 2 seconds if input exists
+  setInterval(() => {
+    const id1 = document.getElementById('channel1').value.trim();
+    const id2 = document.getElementById('channel2').value.trim();
+    if (id1 && (!compareMode || id2)) fetchSubs();
+  }, 2000);
 
-  document.getElementById('main-title').textContent = compareMode
-    ? 'Statcounts - Compare YouTube Subscribers'
-    : 'Statcounts - YouTube Sub Count';
+  // Initialize on load: read URL params, switch mode, fetch data
+  window.onload = () => {
+    const params = getQueryParams();
 
-  if (!compareMode) {
-    document.getElementById('channel2').value = '';
-    odometerUpdate('user2-subs', 0);
-    odometerUpdate('user2-views', 0);
-    odometerUpdate('user2-videos', 0);
-    odometerUpdate('user2-subs-day', 0);
-    odometerUpdate('user2-subs-hour', 0);
-    odometerUpdate('user2-subs-min', 0);
-  }
-}
-
-window.onload = () => {
-  const params = getQueryParams();
-
-  if (params.id1 && params.id2) {
-    toggleMode(true); // compare mode
-    document.getElementById('channel1').value = params.id1;
-    document.getElementById('channel2').value = params.id2;
-  } else if (params.id) {
-    toggleMode(false); // single mode
-    document.getElementById('channel1').value = params.id;
-  } else {
-    toggleMode(false); // default single
-  }
-
-  // Wait a tiny moment to ensure inputs are updated before fetching:
-  setTimeout(fetchSubs, 50);
-};
-
-// Refresh every 2 seconds if input valid
-setInterval(() => {
-  const id1 = document.getElementById('channel1').value.trim();
-  const id2 = document.getElementById('channel2').value.trim();
-  if (id1 && (!compareMode || id2)) fetchSubs();
-}, 2000);
-
-  </script>
-</body>
-</html>
+    if (params.id1 && params.id2) {
+      if (!compareMode) toggleMode(); // ensure compare mode ON
+      document.getElementById('channel1').value = params.id1;
+      document.getElementById('channel2').value = params.id2;
+      fetchSubs();
+    } else if (params.id) {
+      if (compareMode) toggleMode(); // switch to single mode
+      document.getElementById('channel1').value = params.id;
+      fetchSubs();
+    } else {
+      // Default start in single mode
+      if (compareMode) toggleMode();
+    }
+  };
+</script>
