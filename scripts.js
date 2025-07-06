@@ -1,10 +1,11 @@
+
 const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
-let compareMode = true;
+let compareMode = false;
+const historyData = { user1: [] };
 
 function getQueryParams() {
   const params = {};
   const query = window.location.search.substring(1);
-  if (!query) return params;
   const pairs = query.split('&');
   for (const pair of pairs) {
     const [key, value] = pair.split('=');
@@ -33,69 +34,59 @@ function updateURLParams(id1, id2) {
   window.history.replaceState({}, '', url.toString());
 }
 
-async function fetchChannelData(id) {
+async function fetchChannelData(id, userKey) {
   const res = await fetch(apiBase + encodeURIComponent(id));
   if (!res.ok) throw new Error('Invalid response for: ' + id);
   const data = await res.json();
-
   const subs = data.counts.find(c => c.value === 'subscribers');
   const views = data.counts.find(c => c.value === 'views');
   const videos = data.counts.find(c => c.value === 'videos');
   const name = data.user.find(u => u.value === 'name');
   const pfp = data.user.find(u => u.value === 'pfp');
+  const subsCount = subs?.count || 0;
 
-  let subsPerDay = 0, subsPerHour = 0, subsPerMin = 0;
-  if (data.statistics && data.statistics.length >= 2) {
-    const stats = data.statistics;
-    const last = stats[stats.length - 1];
-    const prev = stats[stats.length - 2];
-    const subDiff = last.subscribers - prev.subscribers;
-    const timeDiffSec = (new Date(last.time) - new Date(prev.time)) / 1000;
-    if (timeDiffSec > 0) {
-      subsPerDay = (subDiff / timeDiffSec) * 86400;
-      subsPerHour = (subDiff / timeDiffSec) * 3600;
-      subsPerMin = (subDiff / timeDiffSec) * 60;
-    }
-  }
+  updateHistory(userKey, subsCount);
+
+  const growth = calculateGrowth(userKey);
 
   return {
     name: name?.count || 'Unknown',
     pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
-    subscribers: subs?.count || 0,
+    subscribers: subsCount,
     views: views?.count || 0,
     videos: videos?.count || 0,
-    subsPerDay: Math.max(0, Math.round(subsPerDay)),
-    subsPerHour: Math.max(0, Math.round(subsPerHour)),
-    subsPerMin: Math.max(0, Math.round(subsPerMin)),
+    subsPerDay: growth.day,
+    subsPerHour: growth.hour,
+    subsPerMin: growth.min
   };
 }
 
-async function fetchSubs() {
-  document.getElementById('error-msg').textContent = '';
-  const id1 = document.getElementById('channel1').value.trim();
-  const id2 = document.getElementById('channel2').value.trim();
+function updateHistory(userKey, subs) {
+  const now = Date.now();
+  historyData[userKey].push({ time: now, subs });
+  const tenMinAgo = now - 10 * 60 * 1000;
+  historyData[userKey] = historyData[userKey].filter(entry => entry.time >= tenMinAgo);
+}
 
-  if (!id1 || (compareMode && !id2)) {
-    document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
-    return;
-  }
+function calculateGrowth(userKey) {
+  const data = historyData[userKey];
+  if (data.length < 2) return { day: 0, hour: 0, min: 0 };
+  const oldest = data[0];
+  const latest = data[data.length - 1];
+  const subDiff = latest.subs - oldest.subs;
+  const timeDiff = (latest.time - oldest.time) / 1000;
+  if (timeDiff <= 0) return { day: 0, hour: 0, min: 0 };
+  return {
+    day: Math.round((subDiff / timeDiff) * 86400),
+    hour: Math.round((subDiff / timeDiff) * 3600),
+    min: Math.round((subDiff / timeDiff) * 60)
+  };
+}
 
-  updateURLParams(id1, compareMode ? id2 : null);
-
-  try {
-    const data1 = await fetchChannelData(id1);
-    updateUserDisplay('user1', data1);
-
-    if (compareMode) {
-      const data2 = await fetchChannelData(id2);
-      updateUserDisplay('user2', data2);
-      const diff = Math.abs(data1.subscribers - data2.subscribers);
-      document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
-    } else {
-      document.getElementById('sub-diff').innerHTML = '';
-    }
-  } catch (err) {
-    document.getElementById('error-msg').textContent = err.message;
+function odometerUpdate(id, value) {
+  const el = document.getElementById(id);
+  if (el && el.innerHTML != value.toString()) {
+    el.innerHTML = value;
   }
 }
 
@@ -110,10 +101,22 @@ function updateUserDisplay(userId, data) {
   odometerUpdate(`${userId}-subs-min`, data.subsPerMin);
 }
 
-function odometerUpdate(id, value) {
-  const el = document.getElementById(id);
-  if (el.innerHTML != value.toString()) {
-    el.innerHTML = value;
+async function fetchSubs() {
+  document.getElementById('error-msg').textContent = '';
+  const id1 = document.getElementById('channel1').value.trim();
+
+  if (!id1) {
+    document.getElementById('error-msg').textContent = 'Please enter a channel ID.';
+    return;
+  }
+
+  updateURLParams(id1);
+
+  try {
+    const data1 = await fetchChannelData(id1, 'user1');
+    updateUserDisplay('user1', data1);
+  } catch (err) {
+    document.getElementById('error-msg').textContent = err.message;
   }
 }
 
@@ -123,7 +126,6 @@ function toggleTheme() {
 
 function toggleMode() {
   compareMode = !compareMode;
-
   document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
   document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
   document.getElementById('stats2').style.display = compareMode ? 'block' : 'none';
@@ -144,25 +146,18 @@ function toggleMode() {
   }
 }
 
-setInterval(() => {
-  const id1 = document.getElementById('channel1').value.trim();
-  const id2 = document.getElementById('channel2').value.trim();
-  if (id1 && (!compareMode || id2)) fetchSubs();
-}, 2000);
-
 window.onload = () => {
   const params = getQueryParams();
-
-  if (params.id1 && params.id2) {
-    if (!compareMode) toggleMode();
-    document.getElementById('channel1').value = params.id1;
-    document.getElementById('channel2').value = params.id2;
-    fetchSubs();
-  } else if (params.id) {
+  if (params.id) {
     if (compareMode) toggleMode();
     document.getElementById('channel1').value = params.id;
     fetchSubs();
-  } else {
-    if (compareMode) toggleMode();
+  } else if (compareMode) {
+    toggleMode();
   }
 };
+
+setInterval(() => {
+  const id1 = document.getElementById('channel1').value.trim();
+  if (id1) fetchSubs();
+}, 2000);
