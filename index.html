@@ -4,10 +4,189 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Statcounts - YouTube Sub Count & Compare</title>
-  <link rel="icon" href="Statcounts_logo.ico" type="image/ico" />
+  <link rel="icon" href="Statcounts_logo.ico" type="image/ico">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
   <style>
-    /* Your existing CSS styles here (omitted for brevity, keep as is) */
+    :root {
+      --bg-color: #f8f8f8;
+      --text-color: #222;
+      --card-color: #fff;
+      --count-color: #000;
+      --label-color: #555;
+    }
+
+    body.dark {
+      --bg-color: #111;
+      --text-color: #fff;
+      --card-color: #1a1a1a;
+      --count-color: #fff;
+      --label-color: #aaa;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: all 0.3s ease;
+    }
+
+    h1 {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+
+    .top-buttons {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .toggle-btn {
+      padding: 8px 14px;
+      background: var(--card-color);
+      color: var(--text-color);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .inputs {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    input {
+      font-size: 1rem;
+      padding: 10px;
+      width: 280px;
+      max-width: 90vw;
+    }
+
+    button {
+      font-size: 1rem;
+      padding: 10px 18px;
+      cursor: pointer;
+    }
+
+    .compare-container {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .user-box {
+      background: var(--card-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+      flex: 1 1 300px;
+      text-align: center;
+      transition: background 0.3s ease;
+    }
+
+    .user-box img {
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      margin-bottom: 12px;
+    }
+
+    .username {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+
+    .subs {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--count-color);
+    }
+
+    .label-subs {
+      font-size: 1rem;
+      color: var(--label-color);
+      margin-top: 6px;
+    }
+
+    .odometer {
+      display: inline-block;
+    }
+
+    .sub-diff {
+      margin-top: 30px;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--count-color);
+      text-align: center;
+    }
+
+    .error {
+      margin-top: 15px;
+      color: #cc0000;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    #user2 {
+      display: block;
+    }
+
+    .stats-container {
+      margin-top: 40px;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .stats-box {
+      background: var(--card-color);
+      border-radius: 12px;
+      padding: 15px 25px;
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+      flex: 1 1 300px;
+      color: var(--text-color);
+      font-weight: 600;
+    }
+
+    .stats-box h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+
+    .stat-label {
+      color: var(--label-color);
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: var(--count-color);
+    }
   </style>
 </head>
 <body>
@@ -63,177 +242,6 @@
   <div class="error" id="error-msg"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
-
-  <script>
-    const apiBase = 'https://mixerno.space/api/youtube-channel-counter/user/';
-    let compareMode = true;
-
-    function getQueryParams() {
-      const params = {};
-      const query = window.location.search.substring(1);
-      if (!query) return params;
-      const pairs = query.split('&');
-      for (const pair of pairs) {
-        const [key, value] = pair.split('=');
-        if (key && value) {
-          params[key] = decodeURIComponent(value);
-        }
-      }
-      return params;
-    }
-
-    function updateURLParams(id1, id2) {
-      const url = new URL(window.location);
-      if (id1 && id2) {
-        url.searchParams.set('id1', id1);
-        url.searchParams.set('id2', id2);
-        url.searchParams.delete('id');
-      } else if (id1) {
-        url.searchParams.set('id', id1);
-        url.searchParams.delete('id1');
-        url.searchParams.delete('id2');
-      } else {
-        url.searchParams.delete('id');
-        url.searchParams.delete('id1');
-        url.searchParams.delete('id2');
-      }
-      window.history.replaceState({}, '', url.toString());
-    }
-
-    async function fetchChannelData(id) {
-      const res = await fetch(apiBase + encodeURIComponent(id));
-      if (!res.ok) throw new Error('Invalid response for: ' + id);
-      const data = await res.json();
-
-      const subs = data.counts.find(c => c.value === 'subscribers');
-      const views = data.counts.find(c => c.value === 'views');
-      const videos = data.counts.find(c => c.value === 'videos');
-      const name = data.user.find(u => u.value === 'name');
-      const pfp = data.user.find(u => u.value === 'pfp');
-
-      let subsPerDay = 0, subsPerHour = 0, subsPerMin = 0;
-      if (data.statistics && data.statistics.length >= 2) {
-        const stats = data.statistics;
-        const last = stats[stats.length - 1];
-        const prev = stats[stats.length - 2];
-        const subDiff = last.subscribers - prev.subscribers;
-        const timeDiffSec = (new Date(last.time) - new Date(prev.time)) / 1000;
-        if (timeDiffSec > 0) {
-          subsPerDay = (subDiff / timeDiffSec) * 86400;
-          subsPerHour = (subDiff / timeDiffSec) * 3600;
-          subsPerMin = (subDiff / timeDiffSec) * 60;
-        }
-      }
-
-      return {
-        name: name?.count || 'Unknown',
-        pfp: pfp?.count || 'https://via.placeholder.com/120?text=No+Image',
-        subscribers: subs?.count || 0,
-        views: views?.count || 0,
-        videos: videos?.count || 0,
-        subsPerDay: Math.max(0, Math.round(subsPerDay)),
-        subsPerHour: Math.max(0, Math.round(subsPerHour)),
-        subsPerMin: Math.max(0, Math.round(subsPerMin)),
-      };
-    }
-
-    async function fetchSubs() {
-      document.getElementById('error-msg').textContent = '';
-      const id1 = document.getElementById('channel1').value.trim();
-      const id2 = document.getElementById('channel2').value.trim();
-
-      if (!id1 || (compareMode && !id2)) {
-        document.getElementById('error-msg').textContent = 'Please enter channel ID(s).';
-        return;
-      }
-
-      updateURLParams(id1, compareMode ? id2 : null);
-
-      try {
-        const data1 = await fetchChannelData(id1);
-        updateUserDisplay('user1', data1);
-
-        if (compareMode) {
-          const data2 = await fetchChannelData(id2);
-          updateUserDisplay('user2', data2);
-          const diff = Math.abs(data1.subscribers - data2.subscribers);
-          document.getElementById('sub-diff').innerHTML = diff.toLocaleString();
-        } else {
-          document.getElementById('sub-diff').innerHTML = '';
-        }
-      } catch (err) {
-        document.getElementById('error-msg').textContent = err.message;
-      }
-    }
-
-    function updateUserDisplay(userId, data) {
-      document.getElementById(`${userId}-name`).textContent = data.name;
-      document.getElementById(`${userId}-pfp`).src = data.pfp;
-      odometerUpdate(`${userId}-subs`, data.subscribers);
-      odometerUpdate(`${userId}-views`, data.views);
-      odometerUpdate(`${userId}-videos`, data.videos);
-      odometerUpdate(`${userId}-subs-day`, data.subsPerDay);
-      odometerUpdate(`${userId}-subs-hour`, data.subsPerHour);
-      odometerUpdate(`${userId}-subs-min`, data.subsPerMin);
-    }
-
-    function odometerUpdate(id, value) {
-      const el = document.getElementById(id);
-      if (el.innerHTML != value.toString()) {
-        el.innerHTML = value;
-      }
-    }
-
-    function toggleTheme() {
-      document.body.classList.toggle('dark');
-    }
-
-    function toggleMode() {
-      compareMode = !compareMode;
-
-      document.getElementById('channel2').style.display = compareMode ? 'inline-block' : 'none';
-      document.getElementById('user2').style.display = compareMode ? 'block' : 'none';
-      document.getElementById('stats2').style.display = compareMode ? 'block' : 'none';
-      document.getElementById('sub-diff').style.display = compareMode ? 'block' : 'none';
-
-      document.getElementById('main-title').textContent = compareMode
-        ? 'Statcounts - Compare YouTube Subscribers'
-        : 'Statcounts - YouTube Sub Count';
-
-      if (!compareMode) {
-        document.getElementById('channel2').value = '';
-        odometerUpdate('user2-subs', 0);
-        odometerUpdate('user2-views', 0);
-        odometerUpdate('user2-videos', 0);
-        odometerUpdate('user2-subs-day', 0);
-        odometerUpdate('user2-subs-hour', 0);
-        odometerUpdate('user2-subs-min', 0);
-      }
-    }
-
-    setInterval(() => {
-      const id1 = document.getElementById('channel1').value.trim();
-      const id2 = document.getElementById('channel2').value.trim();
-      if (id1 && (!compareMode || id2)) fetchSubs();
-    }, 2000);
-
-    window.onload = () => {
-      const params = getQueryParams();
-
-      if (params.id1 && params.id2) {
-        if (!compareMode) toggleMode();
-        document.getElementById('channel1').value = params.id1;
-        document.getElementById('channel2').value = params.id2;
-        fetchSubs();
-      } else if (params.id) {
-        if (compareMode) toggleMode();
-        document.getElementById('channel1').value = params.id;
-        fetchSubs();
-      } else {
-        if (compareMode) toggleMode();
-      }
-    };
-  </script>
-</body>
   <script src="scripts.js"></script>
+</body>
 </html>
