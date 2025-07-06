@@ -1,1 +1,223 @@
-Check back later.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Statcounts - YouTube Sub Count & Compare</title>
+  <link rel="icon" href="Statcounts_logo.ico" type="image/ico" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/themes/odometer-theme-default.min.css" />
+  <style>
+    :root {
+      --bg-color: #f8f8f8;
+      --text-color: #222;
+      --card-color: #fff;
+      --count-color: #000;
+      --label-color: #555;
+    }
+    body.dark {
+      --bg-color: #111;
+      --text-color: #fff;
+      --card-color: #1a1a1a;
+      --count-color: #fff;
+      --label-color: #aaa;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      transition: all 0.3s ease;
+    }
+    h1 {
+      margin-bottom: 1rem;
+      text-align: center;
+    }
+    .top-buttons {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      display: flex;
+      gap: 10px;
+    }
+    .toggle-btn {
+      padding: 8px 14px;
+      background: var(--card-color);
+      color: var(--text-color);
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .inputs {
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+    input {
+      font-size: 1rem;
+      padding: 10px;
+      width: 280px;
+      max-width: 90vw;
+    }
+    button {
+      font-size: 1rem;
+      padding: 10px 18px;
+      cursor: pointer;
+    }
+    .compare-container {
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+      max-width: 900px;
+      width: 100%;
+    }
+    .user-box {
+      background: var(--card-color);
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+      flex: 1 1 300px;
+      text-align: center;
+      transition: background 0.3s ease;
+    }
+    .user-box img {
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      margin-bottom: 12px;
+    }
+    .username {
+      font-weight: 700;
+      font-size: 1.3rem;
+      margin-bottom: 8px;
+    }
+    .subs {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--count-color);
+    }
+    .label-subs {
+      font-size: 1rem;
+      color: var(--label-color);
+      margin-top: 6px;
+    }
+    .odometer {
+      display: inline-block;
+    }
+    .sub-diff {
+      margin-top: 30px;
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--count-color);
+      text-align: center;
+    }
+    .error {
+      margin-top: 15px;
+      color: #cc0000;
+      font-weight: 600;
+      text-align: center;
+    }
+    #user2 {
+      display: block;
+    }
+    .stats-container {
+      margin-top: 40px;
+      display: flex;
+      justify-content: center;
+      gap: 40px;
+      max-width: 900px;
+      width: 100%;
+    }
+    .stats-box {
+      background: var(--card-color);
+      border-radius: 12px;
+      padding: 15px 25px;
+      box-shadow: 0 4px 8px rgb(0 0 0 / 0.1);
+      flex: 1 1 300px;
+      color: var(--text-color);
+      font-weight: 600;
+    }
+    .stats-box h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      text-align: center;
+    }
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .stat-label {
+      color: var(--label-color);
+    }
+    .stat-value {
+      font-weight: 700;
+      color: var(--count-color);
+    }
+  </style>
+</head>
+<body>
+  <div class="top-buttons">
+    <button class="toggle-btn" onclick="toggleTheme()">Toggle Mode</button>
+    <button class="toggle-btn" onclick="toggleMode()">Single/Compare</button>
+  </div>
+
+  <h1 id="main-title">Statcounts – Compare YouTube Subscribers</h1>
+
+  <div class="inputs">
+    <input id="channel1" type="text" placeholder="Enter Channel ID 1" />
+    <input id="channel2" type="text" placeholder="Enter Channel ID 2" />
+    <button onclick="fetchSubs()">Fetch</button>
+  </div>
+
+  <div class="compare-container">
+    <div class="user-box" id="user1">
+      <img id="user1-pfp" src="https://via.placeholder.com/120?text=No+Image" alt="User 1 Profile" />
+      <div class="username" id="user1-name">User 1</div>
+      <div class="subs odometer" id="user1-subs">0</div>
+      <div class="label-subs">Subscribers</div>
+    </div>
+    <div class="user-box" id="user2">
+      <img id="user2-pfp" src="https://via.placeholder.com/120?text=No+Image" alt="User 2 Profile" />
+      <div class="username" id="user2-name">User 2</div>
+      <div class="subs odometer" id="user2-subs">0</div>
+      <div class="label-subs">Subscribers</div>
+    </div>
+  </div>
+
+  <div class="sub-diff odometer" id="sub-diff">0</div>
+
+  <div class="stats-container">
+    <div class="stats-box" id="stats1">
+      <h3>User 1 Stats</h3>
+      <div class="stat-item"><span class="stat-label">Views:</span> <span class="stat-value odometer" id="user1-views">0</span></div>
+      <div class="stat-item"><span class="stat-label">Videos:</span> <span class="stat-value odometer" id="user1-videos">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Day:</span> <span class="stat-value odometer" id="user1-subs-day">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Hour:</span> <span class="stat-value odometer" id="user1-subs-hour">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Min:</span> <span class="stat-value odometer" id="user1-subs-min">0</span></div>
+    </div>
+    <div class="stats-box" id="stats2">
+      <h3>User 2 Stats</h3>
+      <div class="stat-item"><span class="stat-label">Views:</span> <span class="stat-value odometer" id="user2-views">0</span></div>
+      <div class="stat-item"><span class="stat-label">Videos:</span> <span class="stat-value odometer" id="user2-videos">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Day:</span> <span class="stat-value odometer" id="user2-subs-day">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Hour:</span> <span class="stat-value odometer" id="user2-subs-hour">0</span></div>
+      <div class="stat-item"><span class="stat-label">Subs / Min:</span> <span class="stat-value odometer" id="user2-subs-min">0</span></div>
+    </div>
+  </div>
+
+  <div class="error" id="error-msg"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.8/odometer.min.js"></script>
+  <script src="scripts.js"></script>
+</body>
+</html>
